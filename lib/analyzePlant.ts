@@ -26,9 +26,9 @@ const mockProvider: PlantAnalyzerProvider = {
   },
 };
 
-// ─── Claude Vision provider (real AI) ────────────────────────────────────────
+// ─── API provider — calls /api/analyze (backed by Hugging Face) ──────────────
 
-const claudeProvider: PlantAnalyzerProvider = {
+const apiProvider: PlantAnalyzerProvider = {
   async analyze(request: AnalysisRequest): Promise<AnalysisResponse> {
     const res = await fetch('/api/analyze', {
       method: 'POST',
@@ -50,7 +50,7 @@ const claudeProvider: PlantAnalyzerProvider = {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-let activeProvider: PlantAnalyzerProvider = claudeProvider;
+let activeProvider: PlantAnalyzerProvider = apiProvider;
 
 export function setAnalyzerProvider(provider: PlantAnalyzerProvider) {
   activeProvider = provider;

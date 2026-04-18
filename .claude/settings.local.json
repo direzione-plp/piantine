@@ -11,7 +11,9 @@
       "mcp__Claude_Preview__preview_start",
       "Skill(claude-api)",
       "Skill(claude-api:*)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const {HfInference} = require\\('@huggingface/inference'\\); console.log\\('ok', typeof HfInference\\)\")",
+      "Bash(node -e ' *)"
     ]
   }
 }
