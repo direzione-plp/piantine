@@ -31,13 +31,22 @@ export function useCamera() {
           video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
         });
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          // Wait until the video has actual frame data before enabling capture.
+          // Without this, videoWidth/videoHeight are 0 and the canvas is blank.
+          await new Promise<void>((resolve) => {
+            if (video.readyState >= 2) { resolve(); return; }
+            video.addEventListener('loadeddata', () => resolve(), { once: true });
+          });
         }
         setState('active');
       } catch (err: unknown) {
         const name = err instanceof Error ? err.name : '';
-        setState(name === 'NotAllowedError' || name === 'PermissionDeniedError' ? 'denied' : 'unsupported');
+        setState(
+          name === 'NotAllowedError' || name === 'PermissionDeniedError' ? 'denied' : 'unsupported'
+        );
       }
     },
     [facingMode, stopStream]
@@ -53,6 +62,8 @@ export function useCamera() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return null;
+    // Guard: video must have real dimensions
+    if (video.videoWidth === 0 || video.videoHeight === 0) return null;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
