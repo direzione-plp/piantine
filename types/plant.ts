@@ -34,6 +34,7 @@ export interface ScanResult {
   imageDataUrl: string;
   issue: PlantIssue;
   plantNickname?: string;
+  plantType?: string; // identified species, e.g. "Monstera Deliciosa"
 }
 
 export interface SavedScan extends ScanResult {

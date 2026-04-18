@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, FlipHorizontal, Upload, ImageIcon } from 'lucide-react';
 import { useCamera } from '@/hooks/useCamera';
 import CaptureButton from './CaptureButton';
@@ -16,6 +16,8 @@ export default function CameraView({ onCapture }: CameraViewProps) {
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [activeTab, setActiveTab] = useState<'camera' | 'upload'>('camera');
   const [dragOver, setDragOver] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const [captureError, setCaptureError] = useState(false);
 
   useEffect(() => {
     startCamera();
@@ -24,9 +26,28 @@ export default function CameraView({ onCapture }: CameraViewProps) {
     });
   }, [startCamera]);
 
-  function handleCapture() {
-    const dataUrl = capture();
-    if (dataUrl) onCapture(dataUrl);
+  async function handleCapture() {
+    let dataUrl = capture();
+
+    // On some mobile browsers the first frame isn't drawn immediately even
+    // after `playing` fires. Wait one animation frame and retry once.
+    if (!dataUrl) {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      dataUrl = capture();
+    }
+
+    if (!dataUrl) {
+      // Still nothing — show a brief error hint instead of silently doing nothing
+      setCaptureError(true);
+      setTimeout(() => setCaptureError(false), 2500);
+      return;
+    }
+
+    // White flash to confirm the photo was taken
+    setFlash(true);
+    setTimeout(() => setFlash(false), 150);
+
+    onCapture(dataUrl);
   }
 
   function handleFile(file: File) {
@@ -59,7 +80,20 @@ export default function CameraView({ onCapture }: CameraViewProps) {
         />
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* Corner frame overlay */}
+        {/* Shutter flash */}
+        <AnimatePresence>
+          {flash && (
+            <motion.div
+              className="absolute inset-0 bg-white pointer-events-none"
+              initial={{ opacity: 0.8 }}
+              animate={{ opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Corner frame */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative w-56 h-56 md:w-64 md:h-64">
             <div className="absolute inset-0 rounded-3xl border border-white/20" />
@@ -80,13 +114,33 @@ export default function CameraView({ onCapture }: CameraViewProps) {
 
         {/* Status pill */}
         <div className="absolute top-4 left-0 right-0 flex justify-center pointer-events-none">
-          <div className="bg-black/50 backdrop-blur-sm rounded-full px-4 py-2 text-white text-sm font-medium">
-            {state === 'requesting'
-              ? 'Avvio fotocamera…'
-              : state === 'denied'
-              ? 'Accesso negato'
-              : 'Centra la foglia nel riquadro'}
-          </div>
+          <AnimatePresence mode="wait">
+            {captureError ? (
+              <motion.div
+                key="error"
+                className="bg-red-500/90 backdrop-blur-sm rounded-full px-4 py-2 text-white text-sm font-medium"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+              >
+                Fotocamera non ancora pronta — riprova
+              </motion.div>
+            ) : (
+              <motion.div
+                key="hint"
+                className="bg-black/50 backdrop-blur-sm rounded-full px-4 py-2 text-white text-sm font-medium"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {state === 'requesting'
+                  ? 'Avvio fotocamera…'
+                  : state === 'denied'
+                  ? 'Accesso negato'
+                  : 'Centra la pianta nel riquadro'}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Flip button */}
@@ -146,9 +200,7 @@ export default function CameraView({ onCapture }: CameraViewProps) {
           <p className="text-stone-500 text-sm mt-1">Trascina qui o clicca per sfogliare</p>
           <p className="text-stone-400 text-xs mt-2">JPG, PNG, HEIC · max 20 MB</p>
         </div>
-        <button
-          className="bg-green-800 text-white px-6 py-3 rounded-2xl font-semibold text-sm hover:bg-green-700 transition-colors pointer-events-none"
-        >
+        <button className="bg-green-800 text-white px-6 py-3 rounded-2xl font-semibold text-sm hover:bg-green-700 transition-colors pointer-events-none">
           Sfoglia file
         </button>
       </div>
@@ -192,15 +244,10 @@ export default function CameraView({ onCapture }: CameraViewProps) {
 
       {/* Panels */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Camera panel: active tab on mobile, always visible on desktop */}
         <div className={`${activeTab === 'camera' ? 'flex' : 'hidden'} md:flex flex-1 flex-col`}>
           {cameraPanel}
         </div>
-
-        {/* Divider — desktop only */}
         <div className="hidden md:block w-px bg-stone-200 flex-shrink-0" />
-
-        {/* Upload panel: active tab on mobile, always visible on desktop */}
         <div className={`${activeTab === 'upload' ? 'flex' : 'hidden'} md:flex flex-1 flex-col`}>
           {uploadPanel}
         </div>

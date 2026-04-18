@@ -34,11 +34,13 @@ export function useCamera() {
         const video = videoRef.current;
         if (video) {
           video.srcObject = stream;
-          // Wait until the video has actual frame data before enabling capture.
-          // Without this, videoWidth/videoHeight are 0 and the canvas is blank.
+          // Use the `playing` event — it fires only when the video is actually
+          // rendering frames, so videoWidth/videoHeight are guaranteed non-zero.
+          // `loadeddata` can fire before the decoder has produced any frames on
+          // iOS Safari and some Android browsers.
           await new Promise<void>((resolve) => {
-            if (video.readyState >= 2) { resolve(); return; }
-            video.addEventListener('loadeddata', () => resolve(), { once: true });
+            if (video.readyState >= 3) { resolve(); return; }
+            video.addEventListener('playing', () => resolve(), { once: true });
           });
         }
         setState('active');
@@ -62,7 +64,6 @@ export function useCamera() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return null;
-    // Guard: video must have real dimensions
     if (video.videoWidth === 0 || video.videoHeight === 0) return null;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
